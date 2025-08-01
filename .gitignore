@@ -1,0 +1,50 @@
+
+---
+
+## 🛡️ `.gitignore`
+
+```gitignore
+# Entorno virtual
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Editor
+.vscode/
+.idea/
+
+# Archivos de entorno
+.env
+.env.*
+
+# Archivos temporales
+*.log
+*.sqlite3
+
+# Docker
+*.pid
+*.db
+.DS_Store
+
+# Byte-compiled
+*.egg-info/
+*.eggs/
+*.bak
+*.swp
+*.swo
+
+# Coverage / Test
+.coverage
+htmlcov/
+.tox/
+.pytest_cache/
+
+# MyPy
+.mypy_cache/
+
+# Uvicorn / FastAPI reload cache
+app/__pycache__/
