@@ -27,26 +27,23 @@ class CityService:
   def get_all_cities(self):
     """
     Caso de uso: Obtener todas las ciudades del sistema.
-    
     Lógica de negocio:
     1. Obtiene las ciudades del repositorio
     2. Aplica reglas de negocio (ej: filtros, validaciones)
     3. Maneja errores y retorna respuesta HTTP estructurada
-    
     Returns:
         HTTP Response: Respuesta estructurada con ResultHandler
     """
     try:
       # 1. Obtener datos del repositorio (a través del puerto)
       cities = self.city_repository.get_all()
-      
-      # 2. Aplicar lógica de negocio
-      filtered_cities = self._apply_business_rules(cities)
-      
+      # 2. Convertir a diccionarios para JSON serialization
+      cities_dict = [city.model_dump() for city in cities]
+
       # 3. Retornar respuesta exitosa
       return ResultHandler.success(
-        data=filtered_cities,
-        message=f"Se obtuvieron {len(filtered_cities)} ciudades correctamente"
+        data=cities_dict,
+        message=f"Se obtuvieron {len(cities)} ciudades correctamente"
       )
         
     except ValueError as e:
