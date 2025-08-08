@@ -33,3 +33,25 @@ class ResultHandler:
         "data": None
       }
     )
+  
+  @staticmethod
+  def internal_error(message="Ha ocurrido un error", status_code=500):
+    return JSONResponse(
+      status_code=status_code,
+      content={
+        "success": False,
+        "message": message,
+        "data": None
+      }
+    )
+  
+  @staticmethod
+  def bad_request(message="Solicitud incorrecta", status_code=400):
+    return JSONResponse(
+      status_code=status_code,
+      content={
+        "success": False,
+        "message": message,
+        "data": None
+      }
+    )

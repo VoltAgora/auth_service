@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Body
 from app.domain.services.auth_service import AuthService
+from app.domain.services.city_service import CityService
 from app.adapters.persistence.user_repository import UserRepositorySQL
+from app.adapters.persistence.city_repository import CityRepositorySQL
 from app.infrastructure.response import ResultHandler
 from app.domain.models.user import User
 
@@ -10,9 +12,13 @@ router = APIRouter(
   tags=["Auth Service"]
 )
 
-# Crear el repositorio y el manager
-repo = UserRepositorySQL()
-auth_manager = AuthService(repo)
+# Inyección de dependencias - Configuración de servicios
+user_repo = UserRepositorySQL()
+auth_manager = AuthService(user_repo)
+
+city_repo = CityRepositorySQL()
+city_service = CityService(city_repo)
+
 
 @router.get("/ping")
 def ping():
@@ -30,3 +36,8 @@ def login_user():
 @router.get("/verify-token")
 def verify_token():
   return ResultHandler.success(message="Token válido (mock)")
+
+@router.get("/cities")
+def get_cities():
+  result = city_service.get_all_cities()
+  return result 
