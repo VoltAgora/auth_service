@@ -72,7 +72,7 @@ class AuthService:
         email=request.email,
         created_at=datetime.now(bogota_tz),
         is_active=True,
-        role=request.role if request.role else 0
+        role=request.role if request.role else 1
       )
         
       # Guardar usuario

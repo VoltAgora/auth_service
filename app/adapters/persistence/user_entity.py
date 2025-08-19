@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, SmallInteger
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
@@ -21,7 +21,7 @@ class User(Base):
     email = Column(String(255), nullable=False, unique=True)
     created_at = Column(DateTime(timezone=True), default=bogota_now)
     is_active = Column(Boolean, default=True)
-    role = Column(String(2), nullable=False, default="1")
+    role = Column(SmallInteger, nullable=False, default=1)  # TinyInt 0-99 para tabla pivote de roles
 
     auth_data = relationship("AuthData", back_populates="user", uselist=False)
 

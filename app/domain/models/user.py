@@ -15,7 +15,7 @@ class User(BaseModel):
     email: EmailStr   # Validates proper email format
     created_at: Optional[datetime] = None
     is_active: bool = True
-    role: str = "user"
+    role: int = 1  # TinyInt 0-99: 0=admin, 1=user, 2=moderator, etc.
 
     class Config:
         from_attributes = True  # allows ORM objects → Pydantic

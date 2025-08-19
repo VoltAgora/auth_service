@@ -12,7 +12,7 @@ class RegisterRequest(BaseModel):
     phone: Optional[str] = None
     email: EmailStr
     password: str  # Contraseña en texto plano (será hasheada)
-    role: str = "user"
+    role: int = 1  # TinyInt 0-99: 0=admin, 1=user, 2=moderator, etc.
 
 class LoginRequest(BaseModel):
     """
@@ -48,5 +48,5 @@ class UserResponse(BaseModel):
     lastname: str
     phone: Optional[str]
     email: str
-    role: str
+    role: int  # TinyInt 0-99 para tabla pivote de roles
     is_active: bool

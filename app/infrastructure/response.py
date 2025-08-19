@@ -55,3 +55,14 @@ class ResultHandler:
         "data": None
       }
     )
+  
+  @staticmethod
+  def unauthorized(message="No autorizado", status_code=401):
+    return JSONResponse(
+      status_code=status_code,
+      content={
+        "success": False,
+        "message": message,
+        "data": None
+      }
+    )
