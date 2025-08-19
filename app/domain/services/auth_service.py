@@ -34,7 +34,8 @@ class AuthService:
     # Configuración JWT - En producción estos valores deben venir de variables de entorno
     self.SECRET_KEY = os.getenv("SECRET_KEY")
     self.ALGORITHM  = os.getenv("ALGORITHM", "HS256")
-    self.ACCESS_TOKEN_EXPIRE_MINUTES = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60)
+    self.ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
+
 
 
   def register(self, request: RegisterRequest):
@@ -131,7 +132,6 @@ class AuthService:
       user = self.user_repository.get_by_email(request.email)
       if not user:
           return ResultHandler.unauthorized(message="Credenciales inválidas")
-        
       # Verificar que el usuario esté activo
       if not user.is_active:
           return ResultHandler.unauthorized(message="Usuario inactivo")
@@ -144,7 +144,7 @@ class AuthService:
       # Verificar contraseña
       if not self._verify_password(request.password, auth_data.password):
           return ResultHandler.unauthorized(message="Credenciales inválidas")
-        
+      
       # Generar token de acceso
       access_token = self._create_access_token({
         "sub": str(user.id),
