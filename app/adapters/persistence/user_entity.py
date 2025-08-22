@@ -4,7 +4,6 @@ from app.infrastructure.db import Base
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-Base = declarative_base()
 bogota_tz = ZoneInfo("America/Bogota")
 
 def bogota_now():
