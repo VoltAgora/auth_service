@@ -42,3 +42,8 @@ def verify_token(authorization: str = Header(...)):
 def get_cities():
     result = city_service.get_all_cities()
     return result 
+
+@router.get('/cities-with-departments')
+def get_cities_with_departments():
+    result = city_service.get_cities_with_departments()
+    return result

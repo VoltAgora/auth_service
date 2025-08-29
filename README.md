@@ -38,6 +38,8 @@ pip install -r requirements.txt
 
 ## 🧪 Ejecutar el servicio
 uvicorn app.main:app --reload
+# generar nuevos requirements:
+pip freeze > requirements.txt
 
 ## 🐳 Docker
 Próximamente se agregará soporte completo con Dockerfile y docker-compose.yml.
