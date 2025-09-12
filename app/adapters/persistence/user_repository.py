@@ -4,6 +4,7 @@ from app.domain.ports.db_port import UserRepositoryPort
 from app.domain.models.user import User, AuthData
 from app.adapters.persistence.user_entity import User as UserEntity, AuthData as AuthDataEntity
 from app.infrastructure.db import get_db
+from datetime import datetime
 
 class UserRepositorySQL(UserRepositoryPort):
   """
@@ -199,5 +200,98 @@ class UserRepositorySQL(UserRepositoryPort):
         
     except Exception as e:
       raise Exception(f"Error al obtener datos de autenticación del usuario {user_id}: {str(e)}")
+    finally:
+      db.close()
+
+  def create_password_reset(self, user_id: int, otp_hash: str, expires_at: datetime):
+    db = self._get_db_session()
+    try:
+      from app.adapters.persistence.password_reset_entity import PasswordReset
+      pr = PasswordReset(
+        user_id=user_id,
+        otp_hash=otp_hash,
+        expires_at=expires_at
+      )
+      db.add(pr)
+      db.commit()
+      db.refresh(pr)
+      return pr
+    except Exception as e:
+      db.rollback()
+      raise Exception(f"Error al crear password reset: {str(e)}")
+    finally:
+      db.close()
+
+  def get_active_password_reset(self, user_id: int):
+    db = self._get_db_session()
+    try:
+      from app.adapters.persistence.password_reset_entity import PasswordReset
+      # Retornar el más reciente que no esté usado y que no esté expirado
+      now = datetime.now()
+      pr = db.query(PasswordReset).filter(
+          PasswordReset.user_id == user_id,
+          PasswordReset.used == False,
+          PasswordReset.expires_at > now
+      ).order_by(PasswordReset.created_at.desc()).first()
+      return pr
+    except Exception as e:
+      raise Exception(f"Error al obtener password reset: {str(e)}")
+    finally:
+      db.close()
+
+  def increment_reset_attempts(self, reset_id: int):
+    db = self._get_db_session()
+    try:
+      from app.adapters.persistence.password_reset_entity import PasswordReset
+      pr = db.query(PasswordReset).filter(PasswordReset.id == reset_id).first()
+      if not pr:
+        return None
+      pr.attempts = (pr.attempts or 0) + 1
+      db.add(pr)
+      db.commit()
+      db.refresh(pr)
+      return pr
+    except Exception as e:
+      db.rollback()
+      raise Exception(f"Error al incrementar intentos: {str(e)}")
+    finally:
+      db.close()
+
+  def mark_reset_used(self, reset_id: int):
+    db = self._get_db_session()
+    try:
+      from app.adapters.persistence.password_reset_entity import PasswordReset
+      pr = db.query(PasswordReset).filter(PasswordReset.id == reset_id).first()
+      if not pr:
+        return None
+      pr.used = True
+      db.add(pr)
+      db.commit()
+      db.refresh(pr)
+      return pr
+    except Exception as e:
+      db.rollback()
+      raise Exception(f"Error al marcar reset usado: {str(e)}")
+    finally:
+      db.close()
+
+  def update_auth_password(self, user_id: int, new_hashed_password: str):
+    db = self._get_db_session()
+    try:
+      from app.adapters.persistence.user_entity import AuthData as AuthDataEntity
+      auth = db.query(AuthDataEntity).filter(AuthDataEntity.user_id == user_id).first()
+      if not auth:
+        # Si no existe, crear registro (por si se registro sin auth_data)
+        auth = AuthDataEntity(user_id=user_id, password=new_hashed_password)
+        db.add(auth)
+      else:
+        auth.password = new_hashed_password
+        db.add(auth)
+      db.commit()
+      db.refresh(auth)
+      return auth
+    except Exception as e:
+      db.rollback()
+      raise Exception(f"Error al actualizar password: {str(e)}")
     finally:
       db.close()
