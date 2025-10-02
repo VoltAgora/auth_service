@@ -3,7 +3,7 @@
 ## Tablas Clave (Se propone)
 
 ## communities
-### La comunidad energetica en donde esta inscrito el usuario (Con el fin de generar ofertas en un contexto cerrado)
+La comunidad energetica en donde esta inscrito el usuario (Con el fin de generar ofertas en un contexto cerrado)
 - id
 - name
 - description
@@ -11,7 +11,7 @@
 - created_at
 
 ## community_members (pivote users–communities)
-### Con quien podemos negociar
+ Con quien podemos negociar
 - id
 - community_id (FK → communities)
 - user_id (FK → users)
@@ -21,7 +21,7 @@
 - created_at
 
 ## energy_records (registro de energía)
-### Registros cada 15 m x usuario
+ Registros cada 15 m x usuario
 - id
 - user_id (FK → users)
 - community_id (FK → communities)
@@ -32,7 +32,7 @@
 - period (mes/año o timestamp)
 
 ## pde_allocations (distribución de excedentes)
-### CREG 101 072 2025 - Aca se almacena el PDE para el periodo con el fin de saber cuanto del porcentaje de distrib de excedentes le corresponde a cada usuario comunitario
+ CREG 101 072 2025 - Aca se almacena el PDE para el periodo con el fin de saber cuanto del porcentaje de distrib de excedentes le corresponde a cada usuario comunitario
 - id
 - community_id
 - user_id
@@ -41,7 +41,7 @@
 - created_at
 
 ## p2p_contracts (contratos bilaterales)
-### Definer las reglas de negocio
+ Definer las reglas de negocio
 - id
 - seller_id (FK → users)
 - buyer_id (FK → users)
@@ -52,8 +52,8 @@
 - created_at
 
 ## transactions (ejecución de contratos)
-### Recib energia, el precio almacenado desde dos dirreciónes (por eso el contract_id) con el fin de generar una logic fuerte 
-### Para respaldo
+ Recib energia, el precio almacenado desde dos dirreciónes (por eso el contract_id) con el fin de generar una logic fuerte 
+ Para respaldo
 - id
 - contract_id (FK → p2p_contracts, nullable si es PDE directo)
 - seller_id
