@@ -1,10 +1,9 @@
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, SmallInteger
 from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
+from app.infrastructure.db import Base
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-Base = declarative_base()
 bogota_tz = ZoneInfo("America/Bogota")
 
 def bogota_now():

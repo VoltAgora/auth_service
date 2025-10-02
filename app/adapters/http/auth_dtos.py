@@ -50,3 +50,11 @@ class UserResponse(BaseModel):
     email: str
     role: int  # TinyInt 0-99 para tabla pivote de roles
     is_active: bool
+
+class ForgotPasswordRequest(BaseModel):
+    document: str
+
+class ResetPasswordRequest(BaseModel):
+    document: str
+    otp: str
+    new_password: str
