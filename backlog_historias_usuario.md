@@ -4,11 +4,11 @@
 Objetivo: Permitir el registro, consulta y balance de datos energéticos dentro de la comunidad.
 
 ### HU01 – Registro de datos de energía
-**Descripción:** Como **prosumer**, quiero **registrar la energía generada, consumida y exportada**, para que el sistema pueda calcular mis excedentes.  
+**Descripción:** Como **prosumer**, quiero **registrar la energía importada y exportada**, para que el sistema pueda calcular mis excedentes.  
 **Prioridad:** Alta  
 
 **Criterios de Aceptación:**  
-- [ ] El sistema debe permitir registrar datos de energía generada, consumida y exportada.  
+- [ ] El sistema debe permitir registrar datos de energía importada y exportada.  
 - [ ] Los datos deben asociarse al usuario y a la comunidad correspondiente.  
 - [ ] Los registros deben guardarse con marca de tiempo válida (ej. cada 15 minutos).  
 - [ ] Si los datos no cumplen validación, el sistema debe rechazarlos.  
@@ -123,7 +123,7 @@ Objetivo: Consolidar la información en facturas y reportes.
 **Prioridad:** Alta  
 
 **Criterios de Aceptación:**  
-- [ ] Factura generada mensualmente.  
+- [ ] Factura mensualmente.  
 - [ ] Incluye importación, exportación, PDE, P2P.  
 
 **Checklist Técnico:**  
