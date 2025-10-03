@@ -25,8 +25,6 @@ La comunidad energetica en donde esta inscrito el usuario (Con el fin de generar
 - id
 - user_id (FK → users)
 - community_id (FK → communities)
-- energy_generated (kWh)
-- energy_consumed (kWh)
 - energy_exported (kWh)
 - energy_imported (kWh)
 - period (mes/año o timestamp)
