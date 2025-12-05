@@ -1,12 +1,15 @@
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
-from app.adapters.http.routes import router as auth_router
+from app.auth.adapters.http.routes import router as auth_router
+from app.user.adapters.http.routes import router as user_router
+from app.transactions.adapters.http.routes import router as transactions_router
 
-app = FastAPI(title="Auth Service")
-# Hola mundo
+app = FastAPI(title="Volt Platform Services")
 
-# Registrar las rutas del microservicio
-app.include_router(auth_router, prefix="/auth")
+# Registrar las rutas de los microservicios
+app.include_router(auth_router)
+app.include_router(user_router)
+app.include_router(transactions_router)
 
 def custom_openapi():
     if app.openapi_schema:
@@ -14,7 +17,7 @@ def custom_openapi():
     openapi_schema = get_openapi(
         title=app.title,
         version="1.0.0",
-        description="Microservicio de autenticación con JWT",
+        description="Plataforma Volt - Servicios de Autenticación, Usuarios y Transacciones P2P",
         routes=app.routes,
     )
     openapi_schema["components"]["securitySchemes"] = {
