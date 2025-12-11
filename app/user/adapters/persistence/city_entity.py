@@ -8,6 +8,8 @@ class CityEntity(Base):
   Es parte del adaptador de persistencia, NO del dominio.
   """
   __tablename__ = "ciudades"  # Nombre de la tabla en la base de datos
+  __table_args__ = {'extend_existing': True}
+
   # Mapeo de columnas según la estructura que proporcionaste
   codCiudad = Column(Integer, primary_key=True, autoincrement=True)
   codCiudadDane = Column(String(50), nullable=False)
