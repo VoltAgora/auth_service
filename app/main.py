@@ -3,6 +3,7 @@ from fastapi.openapi.utils import get_openapi
 from app.auth.adapters.http.routes import router as auth_router
 from app.user.adapters.http.routes import router as user_router
 from app.transactions.adapters.http.routes import router as transactions_router
+from app.energy.adapters.http.routes import router as energy_router
 
 app = FastAPI(title="Volt Platform Services")
 
@@ -10,6 +11,7 @@ app = FastAPI(title="Volt Platform Services")
 app.include_router(auth_router)
 app.include_router(user_router)
 app.include_router(transactions_router)
+app.include_router(energy_router)
 
 def custom_openapi():
     if app.openapi_schema:
@@ -17,7 +19,7 @@ def custom_openapi():
     openapi_schema = get_openapi(
         title=app.title,
         version="1.0.0",
-        description="Plataforma Volt - Servicios de Autenticación, Usuarios y Transacciones P2P",
+        description="Plataforma Volt - Servicios de Autenticación, Usuarios, Transacciones P2P y Energía",
         routes=app.routes,
     )
     openapi_schema["components"]["securitySchemes"] = {
