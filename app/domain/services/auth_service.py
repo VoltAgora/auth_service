@@ -5,7 +5,7 @@ from passlib.context import CryptContext
 from jose import jwt, JWTError
 from app.domain.models.user import User, AuthData
 from app.domain.ports.db_port import UserRepositoryPort
-from app.adapters.http.auth_dtos import RegisterRequest, LoginRequest, ForgotPasswordRequest, ResetPasswordRequest
+from app.adapters.http.auth_dtos import RegisterRequest, LoginRequest, ForgotPasswordRequest, ResetPasswordRequest, Verify2FARequest, RefreshTokenRequest
 from app.infrastructure.response import ResultHandler
 import os # Para manejar variables de entorno
 from dotenv import load_dotenv # Para cargar variables de entorno desde un archivo .env
@@ -75,13 +75,18 @@ class AuthService:
       if existing_user_email:
         return ResultHandler.bad_request(message="Ya existe un usuario con este email")
             
-      existing_user_document = self.user_repository.get_by_document(request.document)
+      # HU-01: document opcional, se genera desde email si no se proporciona
+      document = request.document
+      if not document or not document.strip():
+        document = f"DOC-{request.email.replace('@', '-').replace('.', '-')}-{int(datetime.now(bogota_tz).timestamp())}"
+      
+      existing_user_document = self.user_repository.get_by_document(document)
       if existing_user_document:
         return ResultHandler.bad_request(message="Ya existe un usuario con este documento")
         
       # Crear objeto User del dominio
       user_data = User(
-        document=request.document,
+        document=document,
         name=request.name,
         lastname=request.lastname,
         phone=request.phone if request.phone else None,
@@ -159,8 +164,42 @@ class AuthService:
       # Verificar contraseña
       if not self._verify_password(request.password, auth_data.password):
           return ResultHandler.unauthorized(message="Credenciales inválidas")
-      
-      # Generar token de acceso
+
+      # HU-06: Si 2FA está activo para este usuario, enviar OTP en vez de token
+      two_fa_enabled = os.getenv("TWO_FACTOR_ENABLED", "false").lower() in ("1", "true", "yes")
+      two_fa_roles = os.getenv("TWO_FACTOR_ROLES", "")
+      roles_with_2fa = [int(r.strip()) for r in two_fa_roles.split(",") if r.strip().isdigit()] if two_fa_roles else []
+      use_2fa = two_fa_enabled or (roles_with_2fa and user.role in roles_with_2fa)
+
+      if use_2fa:
+        otp = self._generate_otp()
+        otp_hash = self._hash_password(otp)
+        expire_minutes = int(os.getenv("OTP_2FA_EXPIRE_MINUTES", 5))
+        expires_at = datetime.now(bogota_tz) + timedelta(minutes=expire_minutes)
+        import uuid
+        temp_token = str(uuid.uuid4()).replace("-", "")
+        self.user_repository.create_otp_2fa_session(user.id, otp_hash, temp_token, expires_at)
+
+        if user.email:
+          import asyncio
+          try:
+            asyncio.run(self._send_2fa_otp_email(user.email, otp))
+          except RuntimeError:
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+              pool.submit(lambda: asyncio.run(self._send_2fa_otp_email(user.email, otp))).result()
+
+        return ResultHandler.success(
+          data={
+            "otp_required": True,
+            "temp_session": temp_token,
+            "email": user.email,
+            "user_id": user.id,
+          },
+          message="Introduce el código OTP enviado a tu correo"
+        )
+
+      # Generar token de acceso (flujo sin 2FA)
       access_token = self._create_access_token({
         "sub": str(user.id),
         "email": user.email,
@@ -247,16 +286,60 @@ class AuthService:
           
     except JWTError:
       return ResultHandler.unauthorized(message="Token inválido o expirado")
-    except ValueError as e:
-      # Error de validación de negocio
-      return ResultHandler.unauthorized(message=str(e))
+    except ValueError:
+      return ResultHandler.unauthorized(message="Token inválido")
     except Exception as e:
-      # Error técnico (DB, conexión, etc.)
-      print(f"Error al verificar token: {e}")
-      return ResultHandler.internal_error(
-          message="Error interno del servidor al verificar token"
-      )
+      print(f"Error en verify_token: {e}")
+      return ResultHandler.internal_error(message="Error al verificar token")
 
+  def refresh_token(self, request: RefreshTokenRequest):
+    """
+    HU-07: Renueva el access token a partir del token actual (incluso expirado).
+    Decodifica el JWT sin validar expiración, verifica usuario activo y emite nuevo token.
+    """
+    try:
+      token = request.token
+      if not token or not token.strip():
+        return ResultHandler.bad_request(message="Token requerido")
+
+      try:
+        # Decodificar permitiendo token expirado (verify_exp=False)
+        payload = jwt.decode(
+          token,
+          self.SECRET_KEY,
+          algorithms=[self.ALGORITHM],
+          options={"verify_exp": False}
+        )
+      except JWTError:
+        return ResultHandler.unauthorized(message="Token inválido o corrupto")
+
+      user_id: str = payload.get("sub")
+      if user_id is None:
+        return ResultHandler.unauthorized(message="Token inválido")
+
+      user = self.user_repository.get_by_id(int(user_id))
+      if user is None:
+        return ResultHandler.unauthorized(message="Usuario no encontrado")
+      if not user.is_active:
+        return ResultHandler.unauthorized(message="Usuario inactivo")
+
+      access_token = self._create_access_token({
+        "sub": str(user.id),
+        "email": user.email,
+        "role": user.role,
+      })
+
+      return ResultHandler.success(
+        data={
+          "user_id": user.id,
+          "email": user.email,
+          "access_token": access_token,
+        },
+        message="Token renovado"
+      )
+    except Exception as e:
+      print(f"Error refresh_token: {e}")
+      return ResultHandler.internal_error(message="Error al renovar token")
 
   def _hash_password(self, password: str) -> str:
     """
@@ -306,6 +389,26 @@ class AuthService:
   def _generate_otp(self) -> str:
     return f"{random.randint(0, 999999):06d}"
 
+  async def _send_2fa_otp_email(self, to_email: str, otp: str) -> bool:
+    """Envía OTP para 2FA al correo del usuario."""
+    mail_server = os.getenv("MAIL_SERVER")
+    if not mail_server:
+      print(f"[DEV-2FA-OTP] to={to_email} otp={otp}")
+      return True
+    msg = MessageSchema(
+      subject="Código de verificación - BeEnergy",
+      recipients=[to_email],
+      body=f"Tu código de verificación para iniciar sesión es: {otp}. Válido por {os.getenv('OTP_2FA_EXPIRE_MINUTES', '5')} minutos.",
+      subtype="plain"
+    )
+    try:
+      fm = FastMail(self.mail_conf)
+      await fm.send_message(msg)
+      return True
+    except Exception as e:
+      print(f"Error al enviar email 2FA: {e}")
+      return False
+
   # helper: enviar correo (si no config, hace log)
   async def send_otp_email_async(self, to_email: str, otp: str) -> bool:
     """
@@ -353,7 +456,14 @@ class AuthService:
       # Enviar OTP por correo (si hay email)
       if not user.email:
         return ResultHandler.internal_error(message="Usuario no tiene correo registrado")
-      sent = self._send_otp_email(user.email, otp)
+      import asyncio
+      try:
+        sent = asyncio.run(self.send_otp_email_async(user.email, otp))
+      except RuntimeError:
+        # Ya hay un event loop (ej. en FastAPI), usar nest_asyncio o ejecutar en thread
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+          sent = pool.submit(lambda: asyncio.run(self.send_otp_email_async(user.email, otp))).result()
       if not sent:
         # opcional: borrar el registro o dejarlo para reintentos
         return ResultHandler.internal_error(message="No se pudo enviar el correo con el OTP")
@@ -364,10 +474,11 @@ class AuthService:
       print("Error forgot_password:", e)
       return ResultHandler.internal_error(message="Error interno al solicitar recuperación")
     
-  def generate_and_store_otp(self, document: str):
-    user = self.user_repository.get_by_document(document)
+  def generate_and_store_otp(self, identifier: str):
+    """identifier puede ser document o email (HU-05)"""
+    user = self.user_repository.get_by_document(identifier) or self.user_repository.get_by_email(identifier)
     if not user:
-      raise ValueError("Usuario no encontrado con ese documento")
+      raise ValueError("Usuario no encontrado con ese documento o correo")
 
     otp = self._generate_otp()
     otp_hash = self._hash_password(otp)
@@ -381,7 +492,10 @@ class AuthService:
   # Endpoint handler: verificar OTP y cambiar password
   def reset_password(self, request: ResetPasswordRequest):
     try:
-      user = self.user_repository.get_by_document(request.document)
+      identifier = request.document or request.email
+      if not identifier:
+        return ResultHandler.bad_request(message="Debe proporcionar documento o correo")
+      user = self.user_repository.get_by_document(identifier) or self.user_repository.get_by_email(identifier)
       if not user:
         return ResultHandler.bad_request(message="Usuario no encontrado")
 
@@ -424,13 +538,50 @@ class AuthService:
 
       # notificar cambio por correo (opcional)
       try:
-        # notificar al usuario que su contraseña fue cambiada
         if user.email:
-          self._send_otp_email(user.email, f"Tu contraseña fue actualizada correctamente. Si no hiciste esto, contacta soporte.")
-      except:
+          import asyncio
+          asyncio.run(self.send_otp_email_async(user.email, "Tu contraseña fue actualizada correctamente. Si no hiciste esto, contacta soporte."))
+      except Exception:
         pass
 
       return ResultHandler.success(message="Contraseña actualizada correctamente")
     except Exception as e:
       print("Error reset_password:", e)
       return ResultHandler.internal_error(message="Error interno al restablecer contraseña")
+
+  def verify_2fa(self, request: Verify2FARequest):
+    """HU-06: Verifica OTP 2FA y retorna token JWT."""
+    try:
+      otp_session = self.user_repository.get_otp_2fa_by_token(request.temp_session)
+      if not otp_session:
+        return ResultHandler.unauthorized(message="Sesión 2FA inválida o expirada. Inicia sesión de nuevo.")
+
+      max_attempts = int(os.getenv("OTP_2FA_MAX_ATTEMPTS", 5))
+      if otp_session.attempts and otp_session.attempts >= max_attempts:
+        return ResultHandler.unauthorized(message="Se excedió el número máximo de intentos. Inicia sesión de nuevo.")
+
+      if not self._verify_password(request.otp, otp_session.otp_hash):
+        self.user_repository.increment_otp_2fa_attempts(otp_session.id)
+        return ResultHandler.unauthorized(message="Código OTP inválido")
+
+      self.user_repository.mark_otp_2fa_used(otp_session.id)
+      user = self.user_repository.get_by_id(otp_session.user_id)
+      if not user or not user.is_active:
+        return ResultHandler.unauthorized(message="Usuario no encontrado o inactivo")
+
+      access_token = self._create_access_token({
+        "sub": str(user.id),
+        "email": user.email,
+        "role": user.role,
+      })
+      return ResultHandler.success(
+        data={
+          "user_id": user.id,
+          "email": user.email,
+          "access_token": access_token,
+        },
+        message="Log-in exitoso"
+      )
+    except Exception as e:
+      print(f"Error verify_2fa: {e}")
+      return ResultHandler.internal_error(message="Error interno al verificar 2FA")

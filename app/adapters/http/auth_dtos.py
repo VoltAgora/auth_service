@@ -5,14 +5,15 @@ class RegisterRequest(BaseModel):
     """
     DTO para la solicitud de registro de usuario.
     Incluye todos los datos necesarios para crear una cuenta.
+    HU-01: nombre, apellido, teléfono, correo, contraseña, tipo de perfil.
     """
-    document: str
-    name: str
-    lastname: str
+    document: Optional[str] = None  # Opcional: se genera desde email si no se envía
+    name: str  # nombre
+    lastname: str  # apellido
     phone: Optional[str] = None
     email: EmailStr
     password: str  # Contraseña en texto plano (será hasheada)
-    role: int = 1  # TinyInt 0-99: 0=admin, 1=user, 2=moderator, etc.
+    role: int = 1  # 1=consumidor, 2=prosumidor, 0=admin (HU-01: tipo de perfil)
 
 class LoginRequest(BaseModel):
     """
@@ -52,9 +53,28 @@ class UserResponse(BaseModel):
     is_active: bool
 
 class ForgotPasswordRequest(BaseModel):
-    document: str
+    """HU-05: Permite recuperar contraseña por correo electrónico."""
+    document: Optional[str] = None
+    email: Optional[EmailStr] = None  # Alternativa: buscar por email
 
 class ResetPasswordRequest(BaseModel):
-    document: str
+    document: Optional[str] = None
+    email: Optional[EmailStr] = None  # Alternativa para identificar usuario
     otp: str
     new_password: str
+
+
+class Verify2FARequest(BaseModel):
+    """HU-06: Verificación de OTP para autenticación de dos factores."""
+    temp_session: str
+    otp: str
+
+
+class RefreshTokenRequest(BaseModel):
+    """HU-07: Renovación de token JWT. Acepta access_token o refreshToken."""
+    access_token: Optional[str] = None
+    refreshToken: Optional[str] = None  # Compatibilidad con frontend
+
+    @property
+    def token(self) -> Optional[str]:
+        return self.access_token or self.refreshToken

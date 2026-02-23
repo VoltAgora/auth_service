@@ -1,11 +1,21 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from app.adapters.http.routes import router as auth_router
 
 app = FastAPI(title="Auth Service")
 
-# Registrar las rutas del microservicio
-app.include_router(auth_router, prefix="/auth")
+# CORS: permite peticiones desde Flutter Web (localhost), emulador (10.0.2.2) y dispositivos
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Registrar las rutas del microservicio (el router ya tiene prefix="/auth")
+app.include_router(auth_router)
 
 def custom_openapi():
     if app.openapi_schema:

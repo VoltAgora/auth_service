@@ -5,6 +5,9 @@ from app.domain.models.user import User, AuthData
 from app.adapters.persistence.user_entity import User as UserEntity, AuthData as AuthDataEntity
 from app.infrastructure.db import get_db
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
+bogota_tz = ZoneInfo("America/Bogota")
 
 class UserRepositorySQL(UserRepositoryPort):
   """
@@ -272,6 +275,83 @@ class UserRepositorySQL(UserRepositoryPort):
     except Exception as e:
       db.rollback()
       raise Exception(f"Error al marcar reset usado: {str(e)}")
+    finally:
+      db.close()
+
+  def create_otp_2fa_session(self, user_id: int, otp_hash: str, temp_token: str, expires_at: datetime):
+    """HU-06: Crea una sesión OTP para 2FA."""
+    db = self._get_db_session()
+    try:
+      from app.adapters.persistence.otp_2fa_entity import Otp2FA
+      otp = Otp2FA(
+        user_id=user_id,
+        otp_hash=otp_hash,
+        temp_token=temp_token,
+        expires_at=expires_at
+      )
+      db.add(otp)
+      db.commit()
+      db.refresh(otp)
+      return otp
+    except Exception as e:
+      db.rollback()
+      raise Exception(f"Error al crear sesión 2FA: {str(e)}")
+    finally:
+      db.close()
+
+  def get_otp_2fa_by_token(self, temp_token: str):
+    """Obtiene sesión 2FA por token temporal (válida, no usada, no expirada)."""
+    db = self._get_db_session()
+    try:
+      from app.adapters.persistence.otp_2fa_entity import Otp2FA
+      now = datetime.now(bogota_tz)
+      # Normalizar expires_at para comparación (MySQL puede devolver naive)
+      otp = db.query(Otp2FA).filter(
+        Otp2FA.temp_token == temp_token,
+        Otp2FA.used == False,
+        Otp2FA.expires_at > now
+      ).first()
+      return otp
+    except Exception as e:
+      raise Exception(f"Error al obtener sesión 2FA: {str(e)}")
+    finally:
+      db.close()
+
+  def mark_otp_2fa_used(self, otp_id: int):
+    """Marca la sesión 2FA como usada."""
+    db = self._get_db_session()
+    try:
+      from app.adapters.persistence.otp_2fa_entity import Otp2FA
+      otp = db.query(Otp2FA).filter(Otp2FA.id == otp_id).first()
+      if not otp:
+        return None
+      otp.used = True
+      db.add(otp)
+      db.commit()
+      db.refresh(otp)
+      return otp
+    except Exception as e:
+      db.rollback()
+      raise Exception(f"Error al marcar 2FA usado: {str(e)}")
+    finally:
+      db.close()
+
+  def increment_otp_2fa_attempts(self, otp_id: int):
+    """Incrementa intentos fallidos de OTP 2FA."""
+    db = self._get_db_session()
+    try:
+      from app.adapters.persistence.otp_2fa_entity import Otp2FA
+      otp = db.query(Otp2FA).filter(Otp2FA.id == otp_id).first()
+      if not otp:
+        return None
+      otp.attempts = (otp.attempts or 0) + 1
+      db.add(otp)
+      db.commit()
+      db.refresh(otp)
+      return otp
+    except Exception as e:
+      db.rollback()
+      raise Exception(f"Error al incrementar intentos 2FA: {str(e)}")
     finally:
       db.close()
 

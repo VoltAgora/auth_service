@@ -37,7 +37,19 @@ source venv/Scripts/activate  # En Windows
 pip install -r requirements.txt
 
 ## 🧪 Ejecutar el servicio
+
+**Solo en esta PC (localhost):**
+```bash
 uvicorn app.main:app --reload
+```
+
+**Para que el celular o emulador en la red pueda conectarse** (usa la IP de esta PC en el .env del frontend, ej. 11.11.7.33):
+```bash
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+O en Windows: `.\run.ps1`
+
+Asegúrate de que el firewall de Windows permita conexiones entrantes en el puerto 8000.
 
 ## 🐳 Docker
 Próximamente se agregará soporte completo con Dockerfile y docker-compose.yml.

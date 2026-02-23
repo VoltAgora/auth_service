@@ -4,7 +4,7 @@ from app.domain.services.city_service import CityService
 from app.adapters.persistence.user_repository import UserRepositorySQL
 from app.adapters.persistence.city_repository import CityRepositorySQL
 from app.infrastructure.response import ResultHandler
-from app.adapters.http.auth_dtos import RegisterRequest, LoginRequest, TokenVerifyRequest, ForgotPasswordRequest, ResetPasswordRequest
+from app.adapters.http.auth_dtos import RegisterRequest, LoginRequest, TokenVerifyRequest, ForgotPasswordRequest, ResetPasswordRequest, Verify2FARequest, RefreshTokenRequest
 
 router = APIRouter(
   prefix="/auth",
@@ -33,10 +33,19 @@ def log_in(request: LoginRequest = Body(...)):
     result = auth_manager.login(request)
     return result
 
+@router.post("/verify-2fa")
+def verify_2fa(request: Verify2FARequest = Body(...)):
+    result = auth_manager.verify_2fa(request)
+    return result
+
 @router.post("/forgot-password")
 def forgot_password(request: ForgotPasswordRequest, background_tasks: BackgroundTasks):
     try:
-        res = auth_manager.generate_and_store_otp(request.document)
+        # HU-05: Permite buscar por correo o documento
+        identifier = request.email or request.document
+        if not identifier:
+            return ResultHandler.bad_request(message="Debe proporcionar correo o documento")
+        res = auth_manager.generate_and_store_otp(identifier)
     except ValueError as e:
         return ResultHandler.bad_request(message=str(e))
     except Exception as e:
@@ -56,6 +65,11 @@ def reset_password(request: ResetPasswordRequest):
 @router.get("/verify-token")
 def verify_token(authorization: str = Header(...)):
     result = auth_manager.verify_token(authorization)
+    return result
+
+@router.post("/refresh")
+def refresh_token(request: RefreshTokenRequest = Body(...)):
+    result = auth_manager.refresh_token(request)
     return result
 
 @router.get("/cities")
